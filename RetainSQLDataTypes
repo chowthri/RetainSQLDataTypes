@@ -1,0 +1,52 @@
+using System;
+using System.Data;
+using System.Data.SqlTypes;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
+public class PreserveAllSqlServerDataTypesConverter : JsonConverter
+{
+    public override bool CanConvert(Type objectType)
+    {
+        return typeof(SqlType).IsAssignableFrom(objectType);
+    }
+
+    public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
+    {
+        if (reader.TokenType == JsonToken.Null)
+        {
+            // Handle null values
+            return null;
+        }
+
+        JToken token = JToken.Load(reader);
+
+        if (objectType.IsGenericType && objectType.GetGenericTypeDefinition() == typeof(SqlNullable<>))
+        {
+            var underlyingType = Nullable.GetUnderlyingType(objectType);
+            return token.ToObject(underlyingType);
+        }
+
+        return token.ToObject(objectType);
+    }
+
+    public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
+    {
+        if (value == null)
+        {
+            // Write null values
+            writer.WriteNull();
+            return;
+        }
+
+        JToken.FromObject(value).WriteTo(writer);
+    }
+}
+
+var settings = new JsonSerializerSettings
+{
+    Converters = { new PreserveAllSqlServerDataTypesConverter() },
+};
+
+string json = JsonConvert.SerializeObject(yourObject, settings);
+
