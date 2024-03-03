@@ -1,19 +1,14 @@
 using System;
-using System.Data;
 using System.Data.SqlTypes;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-
-using System;
-using System.Data.SqlTypes;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-
+//v2
 public class PreserveAllSqlServerDataTypesConverter : JsonConverter
 {
     public override bool CanConvert(Type objectType)
     {
-        return objectType == typeof(SqlType) || Nullable.GetUnderlyingType(objectType) != null;
+        // Check if the type is derived from SqlType or if it is a nullable type
+        return typeof(SqlType).IsAssignableFrom(objectType) || (Nullable.GetUnderlyingType(objectType) != null && typeof(SqlType).IsAssignableFrom(Nullable.GetUnderlyingType(objectType)));
     }
 
     public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
@@ -26,14 +21,14 @@ public class PreserveAllSqlServerDataTypesConverter : JsonConverter
 
         JToken token = JToken.Load(reader);
 
-        if (objectType == typeof(SqlType))
+        if (typeof(SqlType).IsAssignableFrom(objectType))
         {
-            // For SqlType, directly deserialize to the specified type
+            // For SqlType or derived types, directly deserialize to the specified type
             return token.ToObject(objectType);
         }
-        else if (Nullable.GetUnderlyingType(objectType) != null)
+        else if (Nullable.GetUnderlyingType(objectType) != null && typeof(SqlType).IsAssignableFrom(Nullable.GetUnderlyingType(objectType)))
         {
-            // For nullable types, get the underlying type and deserialize
+            // For nullable types of SqlType, get the underlying type and deserialize
             var underlyingType = Nullable.GetUnderlyingType(objectType);
             return token.ToObject(underlyingType);
         }
@@ -53,6 +48,7 @@ public class PreserveAllSqlServerDataTypesConverter : JsonConverter
         JToken.FromObject(value).WriteTo(writer);
     }
 }
+
 
 var settings = new JsonSerializerSettings
 {
