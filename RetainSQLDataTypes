@@ -4,11 +4,16 @@ using System.Data.SqlTypes;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
+using System;
+using System.Data.SqlTypes;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+
 public class PreserveAllSqlServerDataTypesConverter : JsonConverter
 {
     public override bool CanConvert(Type objectType)
     {
-        return typeof(SqlType).IsAssignableFrom(objectType);
+        return objectType == typeof(SqlType) || Nullable.GetUnderlyingType(objectType) != null;
     }
 
     public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
@@ -21,13 +26,19 @@ public class PreserveAllSqlServerDataTypesConverter : JsonConverter
 
         JToken token = JToken.Load(reader);
 
-        if (objectType.IsGenericType && objectType.GetGenericTypeDefinition() == typeof(SqlNullable<>))
+        if (objectType == typeof(SqlType))
         {
+            // For SqlType, directly deserialize to the specified type
+            return token.ToObject(objectType);
+        }
+        else if (Nullable.GetUnderlyingType(objectType) != null)
+        {
+            // For nullable types, get the underlying type and deserialize
             var underlyingType = Nullable.GetUnderlyingType(objectType);
             return token.ToObject(underlyingType);
         }
 
-        return token.ToObject(objectType);
+        throw new InvalidOperationException($"Unexpected object type: {objectType}");
     }
 
     public override void WriteJson(JsonWriter writer, object value, JsonSerializer serializer)
